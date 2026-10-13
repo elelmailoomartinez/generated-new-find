@@ -1,0 +1,42 @@
+name: ForensicSupervisor
+provides:
+  - ForensicSupervisor
+doc: |
+  Velociraptor artifact to deploy and run the supervisor_forensic orchestration from the repository.
+  Operator-in-the-loop: run this artifact from the Velociraptor Console and confirm any prompts.
+  Behavior:
+    - Downloads the repository scripts to C:\\temp\\velociraptor_forensic
+    - Runs supervisor_advanced.ps1 (interactive) with Administrator privileges
+    - All actions are logged locally and require operator consent for destructive or heavy actions
+sources:
+  - type: execute
+    command: |
+      powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command {
+        $ErrorActionPreference = 'Stop'
+        $targetDir = 'C:\\temp\\velociraptor_forensic'
+        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+        $urlBase = 'https://raw.githubusercontent.com/elelmailoomartinez/generated-new-find/main'
+        $files = @('forensic_runner.ps1','collect_artifacts.ps1','dependency_installer.ps1','pcap_process.ps1','analyze_results.ps1','geoip_lookup.py','supervisor_advanced.ps1','supervisor_forensic.ps1')
+        Write-Output "Downloading repository helper scripts to $targetDir"
+        foreach ($f in $files) {
+          $u = "$urlBase/$f"
+          $out = Join-Path $targetDir $f
+          try {
+            Invoke-WebRequest -Uri $u -OutFile $out -UseBasicParsing -ErrorAction Stop
+            Write-Output "Downloaded: $f"
+          } catch {
+            Write-Output "Warning: failed to download $f: $($_.Exception.Message)"
+          }
+        }
+        Write-Output "Files placed in $targetDir"
+        # Ensure running as admin
+        $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        if (-not $isAdmin) {
+          Write-Output 'Artifact requires Administrator. Requesting elevation...'
+          Start-Process -FilePath pwsh -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',"Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File `"$targetDir\\supervisor_advanced.ps1`"' -Verb runAs" -Wait
+        } else {
+          Write-Output 'Launching supervisor_advanced.ps1 (interactive)'
+          & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $targetDir 'supervisor_advanced.ps1')
+        }
+        Write-Output 'Artifact run completed.'
+      }
